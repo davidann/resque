@@ -505,6 +505,19 @@ context "Resque::Worker" do
     assert $BEFORE_FORK_CALLED
   end
 
+  test "Will fail a job passed to before_fork hook if the hook raises an exception" do
+    Resque.redis.flushall
+    $BEFORE_FORK_CALLED = false
+    Resque.before_fork = Proc.new { raise StandardError }
+    workerA = Resque::Worker.new(:jobs)
+
+    assert !$BEFORE_FORK_CALLED
+    Resque::Job.create(:jobs, SomeJob, 20, '/tmp')
+    workerA.work(0)
+    puts "RESQUE::FAILURECOUNT*******=#{Resque::Failure.count}"
+    assert Resque::Failure.count == 1
+  end
+  
   test "Will not call a before_fork hook when the worker can't fork" do
     Resque.redis.flushall
     $BEFORE_FORK_CALLED = false
